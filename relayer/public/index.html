@@ -3,141 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Miko Relayer - SOL Token Swap Service</title>
-    <meta name="description" content="Private SOL token swaps on Solana via Jupiter aggregator">
+    <title>Miko Relayer Service</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 20px;
+            background: #f5f5f5;
         }
-        
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 3rem;
-        }
-        
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .card {
+        .container {
             background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-        
-        .feature {
+        h1 {
+            color: #2c3e50;
             text-align: center;
-            padding: 1.5rem;
+            margin-bottom: 30px;
         }
-        
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 0.5rem;
-            transition: all 0.3s ease;
-        }
-        
-        .btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-        
         .status {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: #48bb78;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .endpoints {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .endpoint:last-child {
+            border-bottom: none;
+        }
+        .method {
+            background: #007bff;
             color: white;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .method.post { background: #28a745; }
+        .method.get { background: #17a2b8; }
+        code {
+            background: #f1f1f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🚀 Miko Relayer</h1>
-            <p>Private SOL token swaps on Solana via Jupiter aggregator</p>
-            <div class="status">🟢 Netlify Serverless</div>
-        </div>
+        <h1>🔐 Miko Relayer Service</h1>
         
-        <div class="card">
-            <div class="features">
-                <div class="feature">
-                    <div class="feature-icon">🔒</div>
-                    <h3>SOL-Only Input</h3>
-                    <p>Secure relayer that only accepts SOL as input token.</p>
+        <div class="status">
+            <strong>✅ Service is running</strong><br>
+            Privacy-focused token swap relayer for Solana
+        </div>
+
+        <h2>📡 Available Endpoints</h2>
+        <div class="endpoints">
+            <div class="endpoint">
+                <div>
+                    <span class="method get">GET</span>
+                    <code>/health</code>
                 </div>
-                
-                <div class="feature">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Jupiter Integration</h3>
-                    <p>Best rates through Jupiter's aggregated DEX network.</p>
+                <div>Service health check</div>
+            </div>
+            <div class="endpoint">
+                <div>
+                    <span class="method post">POST</span>
+                    <code>/api/swap/quote</code>
                 </div>
-                
-                <div class="feature">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Serverless Architecture</h3>
-                    <p>Deployed on Netlify serverless functions.</p>
+                <div>Get swap quote with temporary wallet</div>
+            </div>
+            <div class="endpoint">
+                <div>
+                    <span class="method post">POST</span>
+                    <code>/api/swap/confirm</code>
                 </div>
+                <div>Execute swap and transfer assets</div>
             </div>
         </div>
-        
-        <div class="card" style="text-align: center;">
-            <h2>🔧 API Documentation</h2>
-            <p>Explore the interactive API documentation and test endpoints.</p>
-            <br>
-            <a href="/api-docs" class="btn">📚 View API Documentation</a>
-            <a href="/.netlify/functions/health" class="btn">🔍 Test Health Check</a>
+
+        <h2>🚀 Quick Test</h2>
+        <p>Test the health endpoint:</p>
+        <div style="background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 4px; font-family: monospace;">
+            curl <span id="base-url">https://your-app.netlify.app</span>/health
         </div>
-        
-        <div class="card">
-            <h2>🎯 Quick Start</h2>
-            <p><strong>1. Get Quote:</strong> POST to /api/swap with SOL details.</p>
-            <p><strong>2. Fund Wallet:</strong> Send SOL to the temporary wallet.</p>
-            <p><strong>3. Confirm Swap:</strong> Call /api/confirm to execute.</p>
-        </div>
-        
-        <div style="text-align: center; color: white; margin-top: 3rem;">
-            <p>🌟 Powered by Solana, Jupiter, and Netlify</p>
+
+        <h2>📚 Documentation</h2>
+        <p>For detailed API documentation and examples, visit:</p>
+        <ul>
+            <li><a href="https://github.com/your-repo/miko" target="_blank">GitHub Repository</a></li>
+            <li><a href="/health" target="_blank">Health Check</a></li>
+        </ul>
+
+        <div class="footer">
+            <p>Miko Vault - Privacy-Focused DeFi Platform<br>
+            Built with ❤️ for the decentralized future</p>
         </div>
     </div>
+
+    <script>
+        // Update the base URL dynamically
+        document.getElementById('base-url').textContent = window.location.origin;
+        
+        // Auto-refresh health status every 30 seconds
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                console.log('Health check:', data);
+            } catch (error) {
+                console.error('Health check failed:', error);
+            }
+        }
+        
+        // Check health on load
+        checkHealth();
+        
+        // Set up periodic health checks
+        setInterval(checkHealth, 30000);
+    </script>
 </body>
 </html>

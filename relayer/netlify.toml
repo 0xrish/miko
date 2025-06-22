@@ -1,8 +1,8 @@
 [build]
-  # Build command - install dependencies
+  # Build command - install dependencies and prepare functions
   command = "npm install"
   
-  # Directory to publish (for static files)
+  # Directory to publish (for static files like swagger docs)
   publish = "public"
   
   # Functions directory
@@ -29,6 +29,22 @@
 
 # API route redirects to serverless functions
 [[redirects]]
+  from = "/api/swap/quote"
+  to = "/.netlify/functions/swap"
+  status = 200
+
+[[redirects]]
+  from = "/api/swap/confirm"
+  to = "/.netlify/functions/confirm"
+  status = 200
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
+# Legacy API redirects for backward compatibility
+[[redirects]]
   from = "/api/swap"
   to = "/.netlify/functions/swap"
   status = 200
@@ -38,29 +54,17 @@
   to = "/.netlify/functions/confirm"
   status = 200
 
-[[redirects]]
-  from = "/health"
-  to = "/.netlify/functions/health"
-  status = 200
-
-[[redirects]]
-  from = "/api-docs"
-  to = "/.netlify/functions/swagger"
-  status = 200
-
 # Catch-all redirect for SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Edge functions (if needed)
-[edge_functions]
-  # None currently needed
+# Edge functions (none currently needed)
+# [[edge_functions]]
+#   path = "/example"
+#   function = "example"
 
-# Plugin configuration
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-  
-  [plugins.inputs]
-    disable_edge_functions = false 
+# Plugin configuration (removed Next.js plugin as this is a Node.js Express app)
+# [[plugins]]
+#   package = "@netlify/plugin-build-image" 
