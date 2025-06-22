@@ -17,7 +17,10 @@
     "restart": "npm run stop && npm start",
     "dev-fresh": "npm run stop && npm run dev",
     "wallet:generate": "node generate-wallet.js",
-    "wallet:list": "node generate-wallet.js list"
+    "wallet:list": "node generate-wallet.js list",
+    "netlify:dev": "netlify dev",
+    "netlify:deploy": "netlify deploy --prod",
+    "netlify:test": "netlify functions:invoke health"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.6",

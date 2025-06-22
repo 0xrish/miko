@@ -1,0 +1,79 @@
+[build]
+  # Build command - install dependencies
+  command = "npm install"
+  
+  # Directory to publish (for static files if any)
+  publish = "public"
+  
+  # Functions directory
+  functions = "netlify/functions"
+
+[build.environment]
+  # Node.js version
+  NODE_VERSION = "18"
+  
+  # Build environment
+  NODE_ENV = "production"
+
+# Serverless function configuration
+[functions]
+  # Directory where functions are located
+  directory = "netlify/functions"
+  
+  # Node.js runtime
+  node_bundler = "esbuild"
+
+# Environment variables for Netlify
+[context.production.environment]
+  NODE_ENV = "production"
+  PORT = "8888"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "development"
+  PORT = "8888"
+
+# Headers for security
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Redirects for API routes to serverless functions
+[[redirects]]
+  from = "/api/swap"
+  to = "/.netlify/functions/swap"
+  status = 200
+
+[[redirects]]
+  from = "/api/confirm"
+  to = "/.netlify/functions/confirm"
+  status = 200
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
+[[redirects]]
+  from = "/api-docs/*"
+  to = "/.netlify/functions/swagger"
+  status = 200
+
+# Catch-all redirect for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Edge functions (if needed)
+[edge_functions]
+  # None currently needed
+
+# Plugin configuration
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+  
+  [plugins.inputs]
+    disable_edge_functions = false 
