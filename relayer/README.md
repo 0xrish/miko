@@ -39,7 +39,6 @@ cp .env.example .env
 SOLANA_RPC=https://api.mainnet-beta.solana.com
 PORT=3000
 NODE_ENV=development
-ENCRYPTION_KEY=your-32-byte-hex-key
 ```
 
 4. **Start the server**
@@ -274,7 +273,6 @@ npm run dev
 SOLANA_RPC=https://api.mainnet-beta.solana.com
 PORT=3000
 NODE_ENV=development
-ENCRYPTION_KEY=your-32-byte-hex-encryption-key
 ```
 
 ### Testing

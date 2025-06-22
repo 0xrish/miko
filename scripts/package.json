@@ -1,0 +1,14 @@
+{
+  "name": "miko-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Utility scripts for Miko project",
+  "scripts": {
+    "dry-run": "node transfer-all-assets-dry-run.js",
+    "transfer": "node transfer-all-assets.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.2",
+    "@solana/spl-token": "^0.4.6"
+  }
+} 

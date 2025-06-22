@@ -31,42 +31,40 @@ const WARNING_THRESHOLDS = {
 
 // Input validation helper
 function validateSwapRequest(body) {
-  const { fromToken, toToken, amount, destinationWallet, slippageBps } = body;
+  const { fromToken, toToken, amount, destinationWallet, slippageBps, enableMevProtection } = body;
   const errors = [];
   const warnings = [];
   
-  if (!fromToken || typeof fromToken !== 'string') {
-    errors.push('fromToken is required and must be a string');
+  // Enforce that fromToken must always be SOL
+  const SOL_MINT = 'So11111111111111111111111111111111111111112';
+  if (!fromToken || fromToken !== SOL_MINT) {
+    errors.push('fromToken must be SOL (So11111111111111111111111111111111111111112). This relayer only accepts SOL as input token.');
   }
   
   if (!toToken || typeof toToken !== 'string') {
     errors.push('toToken is required and must be a string');
   }
   
+  // Validate that fromToken and toToken are different
+  if (fromToken === toToken) {
+    errors.push('fromToken and toToken must be different. Cannot swap SOL to SOL.');
+  }
+  
   if (!amount || !Number.isInteger(Number(amount)) || Number(amount) <= 0) {
-    errors.push('amount is required and must be a positive integer');
+    errors.push('amount is required and must be a positive integer (in lamports for SOL)');
   } else {
     const amountNum = Number(amount);
-    const minAmount = MINIMUM_AMOUNTS[fromToken] || MINIMUM_AMOUNTS.default;
-    const recAmount = RECOMMENDED_AMOUNTS[fromToken] || RECOMMENDED_AMOUNTS.default;
-    const warnThreshold = WARNING_THRESHOLDS[fromToken] || WARNING_THRESHOLDS.default;
+    const minAmount = MINIMUM_AMOUNTS[SOL_MINT];
+    const recAmount = RECOMMENDED_AMOUNTS[SOL_MINT];
+    const warnThreshold = WARNING_THRESHOLDS[SOL_MINT];
     
     if (amountNum < minAmount) {
-      const tokenName = fromToken === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'tokens';
-      errors.push(`Amount too small. Minimum 1 lamport required for ${tokenName} swaps. You provided: ${amountNum} lamports.`);
+      errors.push(`Amount too small. Minimum 1 lamport required for SOL swaps. You provided: ${amountNum} lamports.`);
     } else if (amountNum < warnThreshold) {
-      const tokenName = fromToken === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'tokens';
-      const warnAmountDisplay = fromToken === 'So11111111111111111111111111111111111111112' 
-        ? (warnThreshold / 1000000000).toFixed(4) + ' SOL'
-        : warnThreshold + ' tokens';
-      
+      const warnAmountDisplay = (warnThreshold / 1000000000).toFixed(4) + ' SOL';
       warnings.push(`⚠️ Very small amount detected! For better rates and user experience, consider using ${warnAmountDisplay} or more. Current amount: ${(amountNum / 1000000000).toFixed(9)} SOL`);
     } else if (amountNum < recAmount) {
-      const tokenName = fromToken === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'tokens';
-      const recAmountDisplay = fromToken === 'So11111111111111111111111111111111111111112' 
-        ? (recAmount / 1000000000).toFixed(3) + ' SOL'
-        : recAmount + ' tokens';
-      
+      const recAmountDisplay = (recAmount / 1000000000).toFixed(3) + ' SOL';
       warnings.push(`💡 Small amount. For optimal rates and reliability, consider using ${recAmountDisplay} or more.`);
     }
   }
@@ -77,6 +75,11 @@ function validateSwapRequest(body) {
   
   if (slippageBps && (!Number.isInteger(Number(slippageBps)) || Number(slippageBps) < 0 || Number(slippageBps) > 10000)) {
     errors.push('slippageBps must be an integer between 0 and 10000');
+  }
+  
+  // Validate MEV protection parameter
+  if (enableMevProtection !== undefined && typeof enableMevProtection !== 'boolean') {
+    errors.push('enableMevProtection must be a boolean when provided');
   }
   
   return { errors, warnings };
@@ -170,232 +173,217 @@ function getJupiterErrorMessage(error) {
  * @swagger
  * /api/swap:
  *   post:
- *     summary: Initialize a token swap
+ *     summary: Get swap quotation for SOL to any token
  *     tags: [Swap]
  *     description: |
- *       Creates a temporary wallet and gets a swap quote from Jupiter.
+ *       Creates a temporary wallet and gets a swap quote from Jupiter for SOL to any supported token.
  *       
- *       **Process:**
- *       1. Validates input parameters
+ *       **Enhanced Process:**
+ *       1. Validates input parameters (fromToken must be SOL)
  *       2. Creates a secure temporary wallet
  *       3. Gets the best swap quote from Jupiter
- *       4. Returns wallet address and swap instructions
+ *       4. Returns wallet address, quote details, and instructions
  *       
- *       **Amount Requirements:**
- *       - Technical Minimum: 1 lamport (Jupiter accepts any amount)
- *       - Practical Minimum: 0.0001 SOL (100,000 lamports) for reasonable UX
- *       - Recommended: 0.001+ SOL (1,000,000+ lamports) for optimal rates
+ *       **Important Constraints:**
+ *       - Input token (fromToken) must always be SOL
+ *       - Output token (toToken) can be any supported token
+ *       - Amount must be specified in lamports (1 SOL = 1,000,000,000 lamports)
  *       
  *       **Next Steps:**
- *       1. Send the specified amount of tokens to the returned temporary wallet
- *       2. Call `/api/confirm` to execute the swap
+ *       1. Send the specified amount of SOL to the returned temporary wallet
+ *       2. Call `/api/confirm` to execute the swap (it will wait for SOL receipt)
  *       
- *       **Common Token Addresses:**
- *       - SOL: `So11111111111111111111111111111111111111112`
- *       - USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
- *       - USDT: `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`
+ *       **Amount Requirements:**
+ *       - Technical Minimum: 1 lamport
+ *       - Practical Minimum: 0.0001 SOL (100,000 lamports) for reasonable UX
+ *       - Recommended: 0.001+ SOL (1,000,000+ lamports) for optimal rates
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/SwapRequest'
+ *             type: object
+ *             required:
+ *               - fromToken
+ *               - toToken
+ *               - amount
+ *               - destinationWallet
+ *             properties:
+ *               fromToken:
+ *                 type: string
+ *                 description: Must always be SOL mint address
+ *                 example: "So11111111111111111111111111111111111111112"
+ *                 enum: ["So11111111111111111111111111111111111111112"]
+ *               toToken:
+ *                 type: string
+ *                 description: Destination token mint address
+ *                 example: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+ *               amount:
+ *                 type: string
+ *                 description: Amount in lamports (1 SOL = 1,000,000,000 lamports)
+ *                 example: "1000000"
+ *               destinationWallet:
+ *                 type: string
+ *                 description: Wallet address to receive the swapped tokens
+ *                 example: "YourWalletAddressHere"
+ *               slippageBps:
+ *                 type: integer
+ *                 description: Slippage tolerance in basis points (optional, default 50)
+ *                 example: 50
+ *                 minimum: 0
+ *                 maximum: 10000
+ *               enableMevProtection:
+ *                 type: boolean
+ *                 description: Enable MEV protection (optional, default false)
  *           examples:
- *             SOL_to_USDC_tiny:
- *               summary: Swap 0.00001 SOL to USDC (minimal test)
- *               value:
- *                 fromToken: "So11111111111111111111111111111111111111112"
- *                 toToken: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
- *                 amount: "10000"
- *                 destinationWallet: "YourWalletAddressHere"
- *                 slippageBps: 50
  *             SOL_to_USDC_small:
- *               summary: Swap 0.0001 SOL to USDC (warning threshold)
+ *               summary: Swap 0.0001 SOL to USDC
  *               value:
  *                 fromToken: "So11111111111111111111111111111111111111112"
  *                 toToken: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
  *                 amount: "100000"
  *                 destinationWallet: "YourWalletAddressHere"
  *                 slippageBps: 50
+ *                 enableMevProtection: false
  *             SOL_to_USDC_recommended:
- *               summary: Swap 0.001 SOL to USDC (recommended minimum)
+ *               summary: Swap 0.001 SOL to USDC (recommended)
  *               value:
  *                 fromToken: "So11111111111111111111111111111111111111112"
  *                 toToken: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
  *                 amount: "1000000"
  *                 destinationWallet: "YourWalletAddressHere"
  *                 slippageBps: 50
- *             SOL_to_USDC_optimal:
- *               summary: Swap 0.01 SOL to USDC (optimal for testing)
+ *                 enableMevProtection: false
+ *             SOL_to_USDT:
+ *               summary: Swap 0.01 SOL to USDT
  *               value:
  *                 fromToken: "So11111111111111111111111111111111111111112"
- *                 toToken: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+ *                 toToken: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
  *                 amount: "10000000"
  *                 destinationWallet: "YourWalletAddressHere"
  *                 slippageBps: 50
- *             USDC_to_SOL:
- *               summary: Swap 10 USDC to SOL
+ *                 enableMevProtection: false
+ *             SOL_to_Custom_Token:
+ *               summary: Swap SOL to any custom token
  *               value:
- *                 fromToken: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
- *                 toToken: "So11111111111111111111111111111111111111112"
- *                 amount: "10000000"
+ *                 fromToken: "So11111111111111111111111111111111111111112"
+ *                 toToken: "YourCustomTokenMintAddress"
+ *                 amount: "5000000"
  *                 destinationWallet: "YourWalletAddressHere"
  *                 slippageBps: 100
+ *                 enableMevProtection: false
  *     responses:
  *       200:
  *         description: Swap quote generated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     tempWalletAddress:
- *                       type: string
- *                       description: Temporary wallet address
- *                     destinationWallet:
- *                       type: string
- *                       description: Destination wallet address
- *                     swap:
- *                       type: object
- *                       properties:
- *                         fromToken: { type: string }
- *                         toToken: { type: string }
- *                         inputAmount: { type: integer }
- *                         expectedOutputAmount: { type: integer }
- *                         slippageBps: { type: integer }
- *                         priceImpactPct: { type: number }
- *                     quote:
- *                       type: object
- *                       description: Validated Jupiter quote response
- *                     instructions:
- *                       type: array
- *                       items: { type: string }
- *                     expiresAt:
- *                       type: string
- *                       format: date-time
- *                     warnings:
- *                       type: array
- *                       items: { type: string }
- *                       description: Warnings about amount size or price impact
+ *               $ref: '#/components/schemas/SwapResponse'
  *       400:
  *         description: Validation error or Jupiter API error
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ValidationErrorResponse'
  *       500:
  *         description: Internal server error
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ServerErrorResponse'
  */
 router.post('/', async (req, res, next) => {
   try {
-    console.log('Swap request received:', req.body);
+    console.log('Swap quotation request received:', req.body);
     
     // Validate input
-    const { errors, warnings } = validateSwapRequest(req.body);
-    if (errors.length > 0) {
+    const validation = validateSwapRequest(req.body);
+    if (validation.errors.length > 0) {
       return res.status(400).json({ 
-        success: false,
         error: 'Validation failed', 
-        details: errors,
-        suggestions: [
-          'Check minimum amount requirements (technical minimum: 1 lamport)',
-          'Ensure all required fields are provided',
-          'Use valid Solana addresses',
-          'For better UX: use 0.0001+ SOL (100,000+ lamports)',
-          'For optimal rates: use 0.001+ SOL (1,000,000+ lamports)'
-        ]
+        details: validation.errors 
       });
     }
     
-    const { fromToken, toToken, amount, destinationWallet, slippageBps = 50 } = req.body;
+    const { fromToken, toToken, amount, destinationWallet, slippageBps = 50, enableMevProtection = false } = req.body;
     
-    // Validate that fromToken and toToken are different
-    if (fromToken === toToken) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'fromToken and toToken must be different',
-        message: 'Cannot swap a token to itself'
-      });
-    }
-    
-    // Generate temporary wallet for the swap
-    const { publicKey: tempWalletAddress } = await generateWalletAndStore();
-    console.log(`Generated temporary wallet: ${tempWalletAddress}`);
+    // Generate a new temporary wallet
+    console.log('Generating temporary wallet for swap...');
+    const walletInfo = await generateWalletAndStore();
     
     // Get swap quote from Jupiter
-    const rawQuote = await getSwapQuote({
+    const mevStatus = enableMevProtection ? 'MEV-protected' : 'standard';
+    console.log(`Getting ${mevStatus} swap quote from Jupiter...`);
+    const quote = await getSwapQuote({
       fromToken,
       toToken,
-      amount: Number(amount),
-      slippageBps: Number(slippageBps)
+      amount,
+      slippageBps,
+      enableMevProtection
     });
     
-    // Validate and enhance the quote
-    const quote = validateQuoteResponse(rawQuote, Number(amount));
+    // Validate and enhance quote
+    const validatedQuote = validateQuoteResponse(quote, amount);
     
-    // Calculate expected output amount and price impact
-    const inputAmount = Number(amount);
-    const outputAmount = Number(quote.outAmount);
-    const priceImpactPct = Number(quote.priceImpactPct || 0);
-    
-    // Get token display names
-    const fromTokenName = fromToken === 'So11111111111111111111111111111111111111112' ? 'SOL' : 
-                         fromToken === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' ? 'USDC' :
-                         fromToken === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' ? 'USDT' : 'tokens';
-    
-    const toTokenName = toToken === 'So11111111111111111111111111111111111111112' ? 'SOL' : 
-                       toToken === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' ? 'USDC' :
-                       toToken === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' ? 'USDT' : 'tokens';
-    
-    // Combine all warnings
-    const allWarnings = [...warnings, ...(quote.warnings || [])];
-    
+    // Prepare response with detailed instructions
     const response = {
       success: true,
       data: {
-        tempWalletAddress,
-        destinationWallet,
+        // Temporary wallet details
+        tempWallet: {
+          address: walletInfo.publicKey,
+          createdAt: new Date().toISOString()
+        },
+        
+        // Swap details
         swap: {
           fromToken,
           toToken,
-          inputAmount,
-          expectedOutputAmount: outputAmount,
-          slippageBps: Number(slippageBps),
-          priceImpactPct
+          inputAmount: amount,
+          expectedOutputAmount: validatedQuote.outAmount,
+          slippageBps,
+          priceImpactPct: Number(validatedQuote.priceImpactPct || 0),
+          route: validatedQuote.routePlan || [],
+          mevProtectionEnabled: enableMevProtection
         },
-        quote,
+        
+        // Destination
+        destinationWallet,
+        
+        // Quote response (needed for confirmation)
+        quoteResponse: validatedQuote,
+        
+        // Instructions for user
         instructions: [
-          `1. Send ${inputAmount} ${fromTokenName} (${(inputAmount / 1000000000).toFixed(9)} ${fromTokenName}) to: ${tempWalletAddress}`,
-          `2. Call /api/confirm with confirmation=true to execute the swap`,
-          `3. You will receive approximately ${outputAmount} ${toTokenName} units at: ${destinationWallet}`
+          `📋 STEP 1: Send exactly ${amount} lamports (${(Number(amount) / 1000000000).toFixed(9)} SOL) to the temporary wallet: ${walletInfo.publicKey}`,
+          `💱 STEP 2: Expected swap output: ${validatedQuote.outAmount} tokens of the destination token`,
+          `📊 Price impact: ${Number(validatedQuote.priceImpactPct || 0).toFixed(2)}%`,
+          `🎯 Final destination: ${destinationWallet}`,
+          enableMevProtection ? `🛡️ MEV Protection: ENABLED - Your transaction will be protected from front-running and sandwich attacks` : `⚠️ MEV Protection: DISABLED - Consider enabling for better protection`,
+          `⏱️ STEP 3: Call /api/confirm with this response to execute the swap`,
+          `⚠️ Important: The system will wait for SOL receipt before executing the swap`
         ],
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
-        warnings: allWarnings.length > 0 ? allWarnings : undefined
+        
+        // Warnings from validation
+        warnings: validation.warnings.concat(validatedQuote.warnings || [])
       }
     };
     
-    console.log(`Swap quote generated successfully. Input: ${inputAmount} ${fromTokenName}, Output: ${outputAmount} ${toTokenName}, Price Impact: ${priceImpactPct}%`);
+    console.log(`Quotation prepared successfully. Temp wallet: ${walletInfo.publicKey}`);
     res.json(response);
     
   } catch (error) {
-    console.error('Error in swap route:', error);
+    console.error('Error in swap quotation:', error);
     
-    // Handle Jupiter-specific errors with helpful messages
+    // Handle Jupiter-specific errors
     const jupiterError = getJupiterErrorMessage(error);
     
-    return res.status(400).json({
+    res.status(500).json({
       success: false,
-      ...jupiterError
+      error: jupiterError.error,
+      message: jupiterError.message,
+      suggestions: jupiterError.suggestions,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
