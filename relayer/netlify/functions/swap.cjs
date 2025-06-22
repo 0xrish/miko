@@ -8,7 +8,7 @@ const {
   validateSwapRequest,
   getJupiterQuote,
   validateQuoteResponse
-} = require('./utils/serverless-utils');
+} = require('./utils/serverless-utils.cjs');
 
 exports.handler = async (event, context) => {
   // Handle preflight OPTIONS request

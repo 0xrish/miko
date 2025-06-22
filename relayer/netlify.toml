@@ -2,7 +2,7 @@
   # Build command - install dependencies
   command = "npm install"
   
-  # Directory to publish (for static files if any)
+  # Directory to publish (for static files)
   publish = "public"
   
   # Functions directory
@@ -11,28 +11,15 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
-  
-  # Build environment
-  NODE_ENV = "production"
 
-# Serverless function configuration
-[functions]
-  # Directory where functions are located
-  directory = "netlify/functions"
-  
-  # Node.js runtime
-  node_bundler = "esbuild"
-
-# Environment variables for Netlify
+# Environment variables for different contexts
 [context.production.environment]
   NODE_ENV = "production"
-  PORT = "8888"
 
 [context.deploy-preview.environment]
   NODE_ENV = "development"
-  PORT = "8888"
 
-# Headers for security
+# Headers for CORS
 [[headers]]
   for = "/api/*"
   [headers.values]
@@ -40,7 +27,7 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
-# Redirects for API routes to serverless functions
+# API route redirects to serverless functions
 [[redirects]]
   from = "/api/swap"
   to = "/.netlify/functions/swap"
@@ -57,7 +44,7 @@
   status = 200
 
 [[redirects]]
-  from = "/api-docs/*"
+  from = "/api-docs"
   to = "/.netlify/functions/swagger"
   status = 200
 
