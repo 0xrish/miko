@@ -151,10 +151,10 @@ export const SwapForm = ({ onComplete }: SwapFormProps) => {
       const finalDestinationWallet = destinationWallet || publicKey.toString();
       
       const confirmRequest = {
-        tempWalletAddress: quoteData.data.tempWalletAddress,
+        tempWalletAddress: quoteData.data.tempWallet.address,
         confirmation: true,
         destinationWallet: finalDestinationWallet,
-        quoteResponse: quoteData.data.quote,
+        quoteResponse: quoteData.data.quoteResponse,
       };
 
       const response = await relayerService.confirmSwap(confirmRequest);
@@ -261,13 +261,13 @@ export const SwapForm = ({ onComplete }: SwapFormProps) => {
                   </div>
                 ))}
               </div>
-              <div className="mt-3 p-2 bg-gray-800 rounded border">
+              {/* <div className="mt-3 p-2 bg-gray-800 rounded border">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">Temporary Wallet:</span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(quoteData.data.tempWalletAddress)}
+                    onClick={() => copyToClipboard(quoteData.data.tempWallet.address)}
                     className="h-6 px-2 text-xs"
                   >
                     <Copy className="w-3 h-3 mr-1" />
@@ -275,9 +275,9 @@ export const SwapForm = ({ onComplete }: SwapFormProps) => {
                   </Button>
                 </div>
                 <div className="text-xs font-mono text-white break-all">
-                  {quoteData.data.tempWalletAddress}
+                  {quoteData.data.tempWallet.address}
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

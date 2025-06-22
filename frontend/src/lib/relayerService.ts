@@ -10,8 +10,13 @@ export interface SwapRequest {
 export interface SwapResponse {
   success: boolean;
   data: {
-    tempWalletAddress: string;
-    destinationWallet: string;
+    // Temporary wallet details
+    tempWallet: {
+      address: string;
+      createdAt: string;
+    };
+    
+    // Swap details
     swap: {
       fromToken: string;
       toToken: string;
@@ -19,10 +24,19 @@ export interface SwapResponse {
       expectedOutputAmount: number;
       slippageBps: number;
       priceImpactPct: number;
+      route: any[];
     };
-    quote: any;
+    
+    // Destination
+    destinationWallet: string;
+    
+    // Quote response (needed for confirmation)
+    quoteResponse: any;
+    
+    // Instructions for user
     instructions: string[];
-    expiresAt: string;
+    
+    // Warnings from validation
     warnings?: string[];
   };
 }

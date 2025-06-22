@@ -1,17 +1,22 @@
 import { Keypair } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 import fs from 'fs/promises';
 import path from 'path';
-import crypto from 'crypto';
 
 const secretsDir = path.resolve('secrets');
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const SOLANA_RPC = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+const connection = new Connection(SOLANA_RPC, 'confirmed');
+
+// Native SOL mint address
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // In-memory storage for temporary wallets (better than file system for security)
 const walletStore = new Map();
 
 export async function generateWalletAndStore() {
   try {
-    // Ensure secrets directory exists (for backup purposes)
+    // Ensure secrets directory exists
     await fs.mkdir(secretsDir, { recursive: true });
 
     const keypair = Keypair.generate();
@@ -25,13 +30,16 @@ export async function generateWalletAndStore() {
       used: false
     });
     
-    // Optional: Also store encrypted backup to file
+    // Store as plain JSON file in secrets folder
     const secretKeyPath = path.join(secretsDir, `${publicKey}.json`);
-    const encryptedSecretKey = encrypt(JSON.stringify(secretKey));
-    await fs.writeFile(secretKeyPath, JSON.stringify({
-      encryptedSecretKey,
-      createdAt: Date.now()
-    }));
+    const walletData = {
+      publicKey,
+      secretKey,
+      createdAt: Date.now(),
+      used: false,
+      generatedBy: 'walletService.js'
+    };
+    await fs.writeFile(secretKeyPath, JSON.stringify(walletData, null, 2));
 
     console.log(`Generated new wallet: ${publicKey}`);
     
@@ -60,12 +68,19 @@ export async function loadKeypair(publicKey) {
       return Keypair.fromSecretKey(secretKey);
     }
     
-    // Fallback to file system (decrypt)
+    // Load from file system (plain JSON)
     const secretKeyPath = path.join(secretsDir, `${publicKey}.json`);
     const fileContent = await fs.readFile(secretKeyPath, 'utf-8');
-    const { encryptedSecretKey } = JSON.parse(fileContent);
-    const decryptedSecretKey = decrypt(encryptedSecretKey);
-    const secretKey = Uint8Array.from(JSON.parse(decryptedSecretKey));
+    const data = JSON.parse(fileContent);
+    
+    // Handle plain JSON format only
+    let secretKey;
+    if (data.secretKey && Array.isArray(data.secretKey)) {
+      // Plain format
+      secretKey = Uint8Array.from(data.secretKey);
+    } else {
+      throw new Error(`Invalid wallet format for ${publicKey}. Expected plain JSON with secretKey array.`);
+    }
     
     return Keypair.fromSecretKey(secretKey);
   } catch (error) {
@@ -101,10 +116,15 @@ export async function cleanupOldWallets() {
         const filePath = path.join(secretsDir, file);
         const content = await fs.readFile(filePath, 'utf-8').catch(() => null);
         if (content) {
-          const { createdAt } = JSON.parse(content);
-          if (now - createdAt > maxAge) {
-            await fs.unlink(filePath);
-            console.log(`Cleaned up old wallet file: ${file}`);
+          try {
+            const data = JSON.parse(content);
+            const createdAt = data.createdAt || 0;
+            if (now - createdAt > maxAge) {
+              await fs.unlink(filePath);
+              console.log(`Cleaned up old wallet file: ${file}`);
+            }
+          } catch (error) {
+            console.error(`Error parsing wallet file ${file}:`, error.message);
           }
         }
       }
@@ -114,26 +134,81 @@ export async function cleanupOldWallets() {
   }
 }
 
-function encrypt(text) {
-  const algorithm = 'aes-256-cbc';
-  const key = Buffer.from(ENCRYPTION_KEY, 'hex');
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipher(algorithm, key);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(encryptedData) {
-  const algorithm = 'aes-256-cbc';
-  const key = Buffer.from(ENCRYPTION_KEY, 'hex');
-  const [ivHex, encrypted] = encryptedData.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const decipher = crypto.createDecipher(algorithm, key);
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
-}
-
 // Initialize cleanup on module load
-cleanupOldWallets(); 
+cleanupOldWallets();
+
+// New function to check if tokens have been received in a wallet
+export async function checkTokenBalance(walletAddress, tokenMint, expectedAmount) {
+  try {
+    const publicKey = new PublicKey(walletAddress);
+    
+    if (tokenMint === SOL_MINT) {
+      // Check SOL balance
+      const balance = await connection.getBalance(publicKey);
+      console.log(`SOL balance for ${walletAddress}: ${balance} lamports`);
+      return {
+        hasTokens: balance >= expectedAmount,
+        currentBalance: balance,
+        expectedAmount,
+        tokenMint: SOL_MINT
+      };
+    } else {
+      // Check SPL token balance
+      const tokenMintPubkey = new PublicKey(tokenMint);
+      const tokenAccount = await getAssociatedTokenAddress(tokenMintPubkey, publicKey);
+      
+      try {
+        const tokenAccountInfo = await connection.getTokenAccountBalance(tokenAccount);
+        const balance = BigInt(tokenAccountInfo.value.amount);
+        const expected = BigInt(expectedAmount);
+        
+        console.log(`Token balance for ${walletAddress}: ${balance} ${tokenMint}`);
+        return {
+          hasTokens: balance >= expected,
+          currentBalance: balance.toString(),
+          expectedAmount: expectedAmount.toString(),
+          tokenMint
+        };
+      } catch (error) {
+        // Token account doesn't exist or has no balance
+        console.log(`No token account found for ${walletAddress} with mint ${tokenMint}`);
+        return {
+          hasTokens: false,
+          currentBalance: '0',
+          expectedAmount: expectedAmount.toString(),
+          tokenMint
+        };
+      }
+    }
+  } catch (error) {
+    console.error(`Error checking token balance for ${walletAddress}:`, error);
+    throw new Error(`Failed to check token balance: ${error.message}`);
+  }
+}
+
+// New function to wait for tokens to be received
+export async function waitForTokens(walletAddress, tokenMint, expectedAmount, maxWaitTime = 300000) {
+  const startTime = Date.now();
+  const checkInterval = 5000; // Check every 5 seconds
+  
+  console.log(`Waiting for ${expectedAmount} tokens of ${tokenMint} in wallet ${walletAddress}`);
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    try {
+      const balanceCheck = await checkTokenBalance(walletAddress, tokenMint, expectedAmount);
+      
+      if (balanceCheck.hasTokens) {
+        console.log(`Tokens received! Balance: ${balanceCheck.currentBalance}`);
+        return balanceCheck;
+      }
+      
+      console.log(`Waiting for tokens... Current balance: ${balanceCheck.currentBalance}, Expected: ${expectedAmount}`);
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    } catch (error) {
+      console.error('Error while waiting for tokens:', error);
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+  }
+  
+  throw new Error(`Timeout: Tokens not received within ${maxWaitTime / 1000} seconds`);
+} 

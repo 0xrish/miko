@@ -1,19 +1,19 @@
 import express from 'express';
 import { executeSwapAndTransfer } from '../services/jupiterService.js';
+import { waitForTokens, checkTokenBalance } from '../services/walletService.js';
 
 const router = express.Router();
 
 // Input validation helper
 function validateConfirmRequest(body) {
-  const { tempWalletAddress, confirmation, destinationWallet, quoteResponse } = body;
+  const { tempWallet, destinationWallet, quoteResponse, confirmed, mevProtectionOptions } = body;
   const errors = [];
   
-  if (!tempWalletAddress || typeof tempWalletAddress !== 'string') {
-    errors.push('tempWalletAddress is required and must be a string');
-  }
+  // Support both old and new format
+  const tempWalletAddress = tempWallet?.address || body.tempWalletAddress;
   
-  if (confirmation !== true && confirmation !== false) {
-    errors.push('confirmation is required and must be a boolean');
+  if (!tempWalletAddress || typeof tempWalletAddress !== 'string') {
+    errors.push('tempWallet.address or tempWalletAddress is required and must be a string');
   }
   
   if (!destinationWallet || typeof destinationWallet !== 'string') {
@@ -24,6 +24,32 @@ function validateConfirmRequest(body) {
     errors.push('quoteResponse is required and must be an object');
   }
   
+  // Check if this is a confirmation request
+  if (confirmed !== undefined && typeof confirmed !== 'boolean') {
+    errors.push('confirmed must be a boolean when provided');
+  }
+  
+  // Validate MEV protection options
+  if (mevProtectionOptions !== undefined) {
+    if (typeof mevProtectionOptions !== 'object') {
+      errors.push('mevProtectionOptions must be an object when provided');
+    } else {
+      const { enableMevProtection, useJitoBundles, maxRetries } = mevProtectionOptions;
+      
+      if (enableMevProtection !== undefined && typeof enableMevProtection !== 'boolean') {
+        errors.push('mevProtectionOptions.enableMevProtection must be a boolean when provided');
+      }
+      
+      if (useJitoBundles !== undefined && typeof useJitoBundles !== 'boolean') {
+        errors.push('mevProtectionOptions.useJitoBundles must be a boolean when provided');
+      }
+      
+      if (maxRetries !== undefined && (!Number.isInteger(maxRetries) || maxRetries < 1 || maxRetries > 10)) {
+        errors.push('mevProtectionOptions.maxRetries must be an integer between 1 and 10 when provided');
+      }
+    }
+  }
+  
   return errors;
 }
 
@@ -31,26 +57,33 @@ function validateConfirmRequest(body) {
  * @swagger
  * /api/confirm:
  *   post:
- *     summary: Execute the token swap
+ *     summary: Execute the SOL swap and transfer tokens to destination
  *     tags: [Swap]
  *     description: |
- *       Confirms and executes the token swap, then transfers the swapped assets to the destination wallet.
+ *       Confirms and executes the SOL-to-token swap with enhanced workflow:
+ *       
+ *       **Enhanced Process:**
+ *       1. Validates the confirmation request
+ *       2. Waits for SOL to be received in the temporary wallet (up to 5 minutes)
+ *       3. Executes the swap via Jupiter aggregator
+ *       4. Transfers the swapped tokens to the destination wallet
+ *       5. Returns transaction signatures and Solscan explorer links
  *       
  *       **Prerequisites:**
- *       1. Must have called `/api/swap` first to get a quote
- *       2. Must have sent the input tokens to the temporary wallet
+ *       1. Must have called `/api/swap` first to get a quote and temporary wallet
+ *       2. Must send the exact amount of SOL to the temporary wallet address
  *       3. Must provide the complete quote response from the swap endpoint
  *       
- *       **Process:**
- *       1. Validates the confirmation request
- *       2. Executes the swap via Jupiter
- *       3. Transfers the swapped tokens to the destination wallet
- *       4. Returns transaction signatures and explorer links
+ *       **SOL-Only Features:**
+ *       - Automatic SOL detection and balance monitoring
+ *       - Real-time confirmation of SOL receipt
+ *       - Enhanced error handling for SOL-specific scenarios
+ *       - Automatic cleanup of temporary wallets after completion
  *       
- *       **Important:**
- *       - Set `confirmation: true` to execute the swap
- *       - Set `confirmation: false` to cancel the swap
- *       - The temporary wallet will be cleaned up automatically
+ *       **Timeout Behavior:**
+ *       - Waits up to 5 minutes (300 seconds) for SOL receipt
+ *       - Returns timeout error if SOL is not received within the timeframe
+ *       - Provides detailed error information for troubleshooting
  *     requestBody:
  *       required: true
  *       content:
@@ -58,23 +91,35 @@ function validateConfirmRequest(body) {
  *           schema:
  *             $ref: '#/components/schemas/ConfirmRequest'
  *           examples:
- *             Execute_Swap:
- *               summary: Execute the swap
+ *             confirm_sol_swap:
+ *               summary: Confirm SOL to USDC swap
  *               value:
- *                 tempWalletAddress: "TempWalletAddressFromSwapResponse"
- *                 confirmation: true
+ *                 tempWallet:
+ *                   address: "4AZii4qQf4zfmgLFhUik3Kmcdqpbi9vVAeDjP9zWN54v"
  *                 destinationWallet: "YourWalletAddressHere"
- *                 quoteResponse: {}
- *             Cancel_Swap:
+ *                 quoteResponse:
+ *                   inputMint: "So11111111111111111111111111111111111111112"
+ *                   outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+ *                   inAmount: "1000000"
+ *                   outAmount: "137850"
+ *                   priceImpactPct: 0
+ *                 confirmed: true
+ *             cancel_swap:
  *               summary: Cancel the swap
  *               value:
- *                 tempWalletAddress: "TempWalletAddressFromSwapResponse"
- *                 confirmation: false
+ *                 tempWallet:
+ *                   address: "4AZii4qQf4zfmgLFhUik3Kmcdqpbi9vVAeDjP9zWN54v"
  *                 destinationWallet: "YourWalletAddressHere"
- *                 quoteResponse: {}
+ *                 quoteResponse:
+ *                   inputMint: "So11111111111111111111111111111111111111112"
+ *                   outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+ *                   inAmount: "1000000"
+ *                   outAmount: "137850"
+ *                   priceImpactPct: 0
+ *                   confirmed: false
  *     responses:
  *       200:
- *         description: Swap confirmation response
+ *         description: Swap executed successfully or cancelled
  *         content:
  *           application/json:
  *             schema:
@@ -90,118 +135,145 @@ function validateConfirmRequest(body) {
  *                       example: "cancelled"
  *                     message:
  *                       type: string
- *                       example: "Swap was not confirmed by user"
- *             examples:
- *               Success:
- *                 summary: Swap executed successfully
- *                 value:
- *                   success: true
- *                   status: "completed"
- *                   data:
- *                     swapTransaction: "5J1s..."
- *                     transferTransaction: "3K2d..."
- *                     tempWalletAddress: "Temp..."
- *                     destinationWallet: "Dest..."
- *                     message: "Swap and transfer completed successfully"
- *                     explorerLinks:
- *                       swap: "https://solscan.io/tx/5J1s..."
- *                       transfer: "https://solscan.io/tx/3K2d..."
- *               Cancelled:
- *                 summary: Swap cancelled by user
- *                 value:
- *                   success: false
- *                   status: "cancelled"
- *                   message: "Swap was not confirmed by user"
+ *                       example: "Swap was cancelled by user"
  *       400:
  *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *               $ref: '#/components/schemas/ValidationErrorResponse'
+ *       408:
+ *         description: SOL receipt timeout
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TimeoutErrorResponse'
  *       500:
  *         description: Swap execution failed
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 status:
- *                   type: string
- *                   example: "failed"
- *                 error:
- *                   type: string
- *                   example: "Swap execution failed: Insufficient balance"
- *                 details:
- *                   type: string
- *                   description: "Stack trace (development only)"
+ *               $ref: '#/components/schemas/ServerErrorResponse'
  */
 router.post('/', async (req, res, next) => {
   try {
     console.log('Confirmation request received:', {
       ...req.body,
-      quoteResponse: req.body.quoteResponse ? req.body.quoteResponse : undefined
+      quoteResponse: req.body.quoteResponse ? '(quote data present)' : 'missing'
     });
     
     // Validate input
     const validationErrors = validateConfirmRequest(req.body);
     if (validationErrors.length > 0) {
       return res.status(400).json({ 
+        success: false,
         error: 'Validation failed', 
         details: validationErrors 
       });
     }
     
-    const { tempWalletAddress, confirmation, destinationWallet, quoteResponse } = req.body;
+    const { tempWallet, destinationWallet, quoteResponse, confirmed, mevProtectionOptions } = req.body;
     
-    // Check if user confirmed the swap
-    if (!confirmation) {
+    // Support both old and new format
+    const tempWalletAddress = tempWallet?.address || req.body.tempWalletAddress;
+    
+    // Check if user wants to cancel
+    if (confirmed === false) {
       return res.json({ 
         success: false,
         status: 'cancelled',
-        message: 'Swap was not confirmed by user'
+        message: 'Swap was cancelled by user'
       });
     }
     
-    console.log(`Executing confirmed swap from ${tempWalletAddress} to ${destinationWallet}`);
+    // Extract swap details from quote response
+    const inputMint = quoteResponse.inputMint;
+    const outputMint = quoteResponse.outputMint;
+    const inputAmount = quoteResponse.inAmount;
     
-    // Execute the swap and transfer
+    console.log(`Starting confirmation process for ${inputAmount} tokens from ${inputMint} to ${outputMint}`);
+    console.log(`Temporary wallet: ${tempWalletAddress}`);
+    console.log(`Destination wallet: ${destinationWallet}`);
+    
+    // Step 1: Wait for tokens to be received in the temporary wallet
+    console.log('⏳ Waiting for tokens to be received in temporary wallet...');
+    
+    try {
+      const tokenCheck = await waitForTokens(tempWalletAddress, inputMint, inputAmount, 300000); // 5 minutes timeout
+      console.log('✅ Tokens received successfully:', tokenCheck);
+    } catch (error) {
+      console.error('❌ Token receipt timeout or error:', error);
+      return res.status(408).json({
+        success: false,
+        status: 'timeout',
+        error: 'Token receipt timeout',
+        message: `Tokens were not received in the temporary wallet within the timeout period. Please ensure you sent exactly ${inputAmount} tokens to ${tempWalletAddress}`,
+        details: {
+          tempWalletAddress,
+          expectedAmount: inputAmount,
+          tokenMint: inputMint,
+          timeoutSeconds: 300
+        }
+      });
+    }
+    
+    // Step 2: Execute the swap and transfer
+    console.log('🔄 Executing swap and transfer...');
+    
     const result = await executeSwapAndTransfer({
       tempWalletAddress,
       destinationWallet,
-      quoteResponse
+      quoteResponse,
+      mevProtectionOptions
     });
     
     const response = {
       success: true,
       status: 'completed',
+      // Transaction IDs directly on response object for test compatibility
+      swapTransaction: result.swapTransaction,
+      transferTransaction: result.transferTransaction,
+      // Detailed data object for API consumers
       data: {
         swapTransaction: result.swapTransaction,
         transferTransaction: result.transferTransaction,
         tempWalletAddress,
         destinationWallet,
         message: result.message,
+        swapDetails: {
+          inputMint,
+          outputMint,
+          inputAmount,
+          outputAmount: quoteResponse.outAmount
+        },
         explorerLinks: {
           swap: `https://solscan.io/tx/${result.swapTransaction}`,
           transfer: result.transferTransaction ? `https://solscan.io/tx/${result.transferTransaction}` : null
-        }
+        },
+        completedAt: new Date().toISOString()
+      },
+      // Include MEV protection results if available
+      mevProtection: result.mevProtection || {
+        enabled: mevProtectionOptions?.enableMevProtection || false,
+        jitoUsed: false,
+        attempts: 1
       }
     };
     
-    console.log('Swap and transfer completed successfully');
+    console.log('✅ Swap and transfer completed successfully');
     res.json(response);
     
   } catch (error) {
-    console.error('Error in confirm route:', error);
+    console.error('❌ Error in confirm route:', error);
     
     // Return detailed error information
     res.status(500).json({
       success: false,
       status: 'failed',
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Swap execution failed',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      timestamp: new Date().toISOString()
     });
   }
 });

@@ -218,7 +218,7 @@ export const VaultInterface = () => {
                 <span>Zero-knowledge proofs active</span>
               </div>
             </div>
-            {/* Quick Stats */}
+            {/* Quick Stats
             <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-md">
               <h3 className="text-lg font-semibold text-white mb-4">Quick Stats</h3>
               <div className="space-y-3">
@@ -235,7 +235,7 @@ export const VaultInterface = () => {
                   <span className="text-green-400 font-medium">98.5%</span>
                 </div>
               </div>
-            </div>
+            </div> */}
           </aside>
         </div>
       )}
