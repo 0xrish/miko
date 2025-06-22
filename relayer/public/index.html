@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miko Relayer - SOL Token Swap Service</title>
+    <meta name="description" content="Private SOL token swaps on Solana via Jupiter aggregator">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #48bb78;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Miko Relayer</h1>
+            <p>Private SOL token swaps on Solana via Jupiter aggregator</p>
+            <div class="status">🟢 Netlify Serverless</div>
+        </div>
+        
+        <div class="card">
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">🔒</div>
+                    <h3>SOL-Only Input</h3>
+                    <p>Secure relayer that only accepts SOL as input token.</p>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Jupiter Integration</h3>
+                    <p>Best rates through Jupiter's aggregated DEX network.</p>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Serverless Architecture</h3>
+                    <p>Deployed on Netlify serverless functions.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h2>🔧 API Documentation</h2>
+            <p>Explore the interactive API documentation and test endpoints.</p>
+            <br>
+            <a href="/api-docs" class="btn">📚 View API Documentation</a>
+            <a href="/.netlify/functions/health" class="btn">🔍 Test Health Check</a>
+        </div>
+        
+        <div class="card">
+            <h2>🎯 Quick Start</h2>
+            <p><strong>1. Get Quote:</strong> POST to /api/swap with SOL details.</p>
+            <p><strong>2. Fund Wallet:</strong> Send SOL to the temporary wallet.</p>
+            <p><strong>3. Confirm Swap:</strong> Call /api/confirm to execute.</p>
+        </div>
+        
+        <div style="text-align: center; color: white; margin-top: 3rem;">
+            <p>🌟 Powered by Solana, Jupiter, and Netlify</p>
+        </div>
+    </div>
+</body>
+</html>
