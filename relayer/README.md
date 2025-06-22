@@ -1,166 +1,186 @@
-# Miko Relayer - Solana Token Swap Relayer
+# Miko Vault - Relayer Service
 
-A powerful Node.js backend service that acts as a relayer for Solana token swaps using Jupiter aggregator. This service creates temporary wallets for secure token swapping and automatically transfers the swapped assets to the user's destination wallet.
+A high-performance Node.js service that facilitates private token swaps on Solana through Jupiter aggregator integration. The relayer acts as an intermediary layer, creating temporary wallets to obscure transaction origins and provide privacy-enhanced swapping capabilities.
 
-## 🚀 Features
+## 🏗️ Architecture
 
-- **Secure Temporary Wallets**: Creates encrypted temporary wallets for each swap
-- **Jupiter Integration**: Uses Jupiter v6 API for optimal swap routes and pricing
-- **Multi-Token Support**: Supports both SOL and SPL token swaps
-- **Automatic Cleanup**: Removes temporary wallets after use or expiration
-- **Comprehensive API**: RESTful API with detailed responses and error handling
-- **Production Ready**: CORS support, request logging, and proper error handling
+The relayer service implements a sophisticated swap mechanism with the following components:
 
-## 📋 Prerequisites
+- **Temporary Wallet Generation**: Creates ephemeral wallets for each swap
+- **Jupiter Integration**: Leverages Jupiter's aggregator for optimal swap routes
+- **MEV Protection**: Optional MEV-resistant transaction execution
+- **Automatic Asset Transfer**: Transfers swapped tokens to destination wallets
+- **Transaction Monitoring**: Real-time swap status tracking
+- **Wallet Cleanup**: Automatic cleanup of temporary wallets
 
-- Node.js 18+ 
-- npm or yarn
-- Solana RPC endpoint (defaults to mainnet)
+### System Flow
 
-## 🛠️ Installation
+1. **Quote Request**: Client requests swap quote for token pair
+2. **Temp Wallet Creation**: Service generates temporary wallet
+3. **Quote Validation**: Validates swap parameters and amounts
+4. **User Confirmation**: Client confirms swap with temporary wallet details
+5. **Swap Execution**: Execute swap through Jupiter in temporary wallet
+6. **Asset Transfer**: Transfer swapped tokens to destination wallet
+7. **Cleanup**: Clean up temporary wallet and sensitive data
 
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd miko-relayer
+## 📁 Directory Structure
+
+```
+relayer/
+├── src/                        # Source code
+│   ├── app.js                  # Express application setup
+│   ├── config/
+│   │   └── swagger.js          # Swagger/OpenAPI configuration
+│   ├── routes/
+│   │   ├── swap.js             # Swap quote and validation endpoints
+│   │   └── confirm.js          # Swap confirmation and execution
+│   └── services/
+│       ├── jupiterService.js   # Jupiter aggregator integration
+│       └── walletService.js    # Wallet generation and management
+├── example/
+│   └── test-relayer.js         # Comprehensive test suite
+├── secrets/                    # Encrypted wallet storage
+│   ├── encrypted_backup/
+│   └── script/
+│       ├── convert.js          # Keypair conversion utilities
+│       └── convert-all.js      # Batch conversion script
+├── docs/                       # Documentation
+│   ├── ENHANCED_RELAYER_GUIDE.md
+│   ├── MAINNET_SWAP_GUIDE.md
+│   ├── SWAGGER_GUIDE.md
+│   └── WALLET_TEST_README.md
+├── test-scripts/               # Testing utilities
+│   ├── test-enhanced-relayer.js
+│   ├── test-mainnet-swap.js
+│   └── test-wallet-integration.js
+├── package.json               # Dependencies and scripts
+├── Dockerfile                 # Container configuration
+└── README.md                  # This file
 ```
 
-2. **Install dependencies**
-```bash
-npm install
+## 🔧 Core Services
+
+### 1. Jupiter Service (`src/services/jupiterService.js`)
+
+**Primary Functions:**
+- **Quote Generation**: Fetch optimal swap routes and pricing
+- **Transaction Building**: Construct swap transactions
+- **MEV Protection**: Optional Jito bundle integration
+- **Swap Execution**: Execute swaps with priority fees
+- **Asset Transfer**: Transfer tokens to destination wallets
+
+**Key Features:**
+```javascript
+// Get swap quote
+await getSwapQuote({
+  fromToken: 'So11111111111111111111111111111111111111112', // SOL
+  toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  amount: '1000000000', // 1 SOL in lamports
+  slippageBps: 50 // 0.5% slippage
+});
+
+// Execute swap with MEV protection
+await executeSwapAndTransfer({
+  tempWalletAddress: 'temp_wallet_pubkey',
+  destinationWallet: 'destination_pubkey',
+  quoteResponse: quote,
+  mevProtectionOptions: { enabled: true }
+});
 ```
 
-3. **Environment Configuration (Optional)**
-```bash
-# Create .env file
-cp .env.example .env
+### 2. Wallet Service (`src/services/walletService.js`)
 
-# Configure environment variables
-SOLANA_RPC=https://api.mainnet-beta.solana.com
-PORT=3000
-NODE_ENV=development
+**Wallet Management:**
+- **Generation**: Create new ephemeral keypairs
+- **Storage**: Secure encrypted storage with automatic cleanup
+- **Balance Monitoring**: Real-time balance tracking
+- **Asset Detection**: Monitor for incoming tokens
+- **Cleanup**: Automatic wallet cleanup after completion
+
+**Security Features:**
+```javascript
+// Generate temporary wallet
+const { publicKey, encryptedKeypair } = await generateWalletAndStore();
+
+// Wait for token arrival
+await waitForTokens(walletAddress, tokenMint, expectedAmount);
+
+// Secure cleanup
+await cleanupWallet(publicKey);
 ```
 
-4. **Start the server**
-```bash
-npm start
-# or for development with auto-restart
-npm run dev
-```
+## 🌐 API Endpoints
 
-5. **Access the API Documentation**
-```
-🌐 Interactive API Docs: http://localhost:3000/api-docs
-📋 Health Check: http://localhost:3000/health
-```
+### Swagger Documentation
+Access interactive API documentation at: `http://localhost:3001/api-docs`
 
-## 🔧 API Documentation
+### Core Endpoints
 
-### 📚 **Interactive Swagger Documentation**
-**🌟 NEW: Complete API documentation with interactive testing!**
-
-**🔗 http://localhost:3000/api-docs**
-
-Features:
-- **Interactive API testing** directly in your browser
-- **Pre-filled examples** for all endpoints
-- **Real-time validation** and error handling
-- **Comprehensive schemas** and response examples
-- **Mobile-friendly** responsive design
-
-### Base URL
-```
-http://localhost:3000/api
-```
-
-### Health Check
+#### 1. Health Check
 ```http
 GET /health
 ```
-
 **Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-15T10:30:00.000Z"
+  "status": "healthy",
+  "timestamp": "2024-01-20T10:30:00.000Z"
 }
 ```
 
-### 1. Initialize Swap
-
-Creates a temporary wallet and gets a swap quote.
-
+#### 2. Get Swap Quote
 ```http
-POST /api/swap
+POST /api/swap/quote
 ```
-
 **Request Body:**
 ```json
 {
   "fromToken": "So11111111111111111111111111111111111111112",
   "toToken": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   "amount": "1000000000",
-  "destinationWallet": "YourWalletAddressHere",
+  "destinationWallet": "destination_wallet_address",
   "slippageBps": 50
 }
 ```
-
-**Parameters:**
-- `fromToken` (string): Source token mint address
-- `toToken` (string): Destination token mint address  
-- `amount` (string): Amount in smallest unit (lamports for SOL)
-- `destinationWallet` (string): User's wallet address to receive swapped tokens
-- `slippageBps` (number, optional): Slippage tolerance in basis points (default: 50 = 0.5%)
 
 **Response:**
 ```json
 {
   "success": true,
   "data": {
-    "tempWalletAddress": "TempWalletAddressHere",
-    "destinationWallet": "YourWalletAddressHere",
-    "swap": {
-      "fromToken": "So11111111111111111111111111111111111111112",
-      "toToken": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "inputAmount": 1000000000,
-      "expectedOutputAmount": 999500000,
-      "slippageBps": 50,
-      "priceImpactPct": 0.01
+    "tempWallet": {
+      "address": "temp_wallet_address",
+      "createdAt": "2024-01-20T10:30:00.000Z"
     },
-    "quote": { /* Jupiter quote response */ },
+    "swap": {
+      "fromToken": "SOL",
+      "toToken": "USDC",
+      "inputAmount": 1000000000,
+      "expectedOutputAmount": 95000000,
+      "slippageBps": 50,
+      "priceImpactPct": 0.1
+    },
     "instructions": [
-      "1. Send 1000000000 SOL to: TempWalletAddressHere",
-      "2. Call /api/confirm with confirmation=true to execute the swap",
-      "3. Swapped tokens will be transferred to: YourWalletAddressHere"
-    ],
-    "expiresAt": "2024-01-15T11:00:00.000Z"
+      "Send 1.0 SOL to temp_wallet_address",
+      "Confirm the swap to proceed"
+    ]
   }
 }
 ```
 
-### 2. Execute Swap
-
-Confirms and executes the swap, then transfers assets to destination wallet.
-
+#### 3. Confirm Swap
 ```http
-POST /api/confirm
+POST /api/swap/confirm
 ```
-
 **Request Body:**
 ```json
 {
-  "tempWalletAddress": "TempWalletAddressFromSwapResponse",
+  "tempWalletAddress": "temp_wallet_address",
   "confirmation": true,
-  "destinationWallet": "YourWalletAddressHere",
-  "quoteResponse": { /* Quote object from /api/swap response */ }
+  "destinationWallet": "destination_wallet_address",
+  "quoteResponse": { /* Quote response object */ }
 }
 ```
-
-**Parameters:**
-- `tempWalletAddress` (string): Temporary wallet address from swap response
-- `confirmation` (boolean): Must be `true` to execute the swap
-- `destinationWallet` (string): Destination wallet address
-- `quoteResponse` (object): Complete quote object from `/api/swap` response
 
 **Response:**
 ```json
@@ -168,151 +188,256 @@ POST /api/confirm
   "success": true,
   "status": "completed",
   "data": {
-    "swapTransaction": "SwapTransactionSignatureHere",
-    "transferTransaction": "TransferTransactionSignatureHere",
-    "tempWalletAddress": "TempWalletAddressHere",
-    "destinationWallet": "YourWalletAddressHere",
-    "message": "Swap and transfer completed successfully",
+    "swapTransaction": "transaction_signature",
+    "transferTransaction": "transfer_signature",
     "explorerLinks": {
-      "swap": "https://solscan.io/tx/SwapTransactionSignatureHere",
-      "transfer": "https://solscan.io/tx/TransferTransactionSignatureHere"
+      "swap": "https://solscan.io/tx/swap_signature",
+      "transfer": "https://solscan.io/tx/transfer_signature"
     }
   }
 }
 ```
 
-## 💡 Usage Example
+## 🚀 Setup & Development
 
-### Complete Swap Flow
+### Prerequisites
+- [Node.js](https://nodejs.org/) 18+
+- [npm](https://npmjs.com/) or [yarn](https://yarnpkg.com/)
+- Solana CLI tools
+- Valid Solana wallet with funds
 
-1. **Get a swap quote and temporary wallet:**
-```javascript
-const swapResponse = await fetch('http://localhost:3000/api/swap', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    fromToken: 'So11111111111111111111111111111111111111112', // SOL
-    toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',   // USDC
-    amount: '1000000000', // 1 SOL in lamports
-    destinationWallet: 'YourWalletAddressHere',
-    slippageBps: 50 // 0.5% slippage
-  })
-});
+### Installation
 
-const swapData = await swapResponse.json();
-console.log('Temporary wallet:', swapData.data.tempWalletAddress);
-```
-
-2. **Send tokens to the temporary wallet** (using your preferred Solana wallet/SDK)
-
-3. **Confirm and execute the swap:**
-```javascript
-const confirmResponse = await fetch('http://localhost:3000/api/confirm', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    tempWalletAddress: swapData.data.tempWalletAddress,
-    confirmation: true,
-    destinationWallet: 'YourWalletAddressHere',
-    quoteResponse: swapData.data.quote
-  })
-});
-
-const result = await confirmResponse.json();
-console.log('Swap completed:', result.data.explorerLinks.swap);
-```
-
-## 🔐 Security Features
-
-- **Encrypted Private Keys**: All private keys are encrypted before storage
-- **In-Memory Storage**: Primary storage is in-memory for better security
-- **Automatic Cleanup**: Temporary wallets are automatically cleaned up
-- **Input Validation**: Comprehensive validation of all API inputs
-- **Error Handling**: Detailed error responses without exposing sensitive data
-
-## 📊 Token Support
-
-### Common Token Addresses
-
-- **SOL**: `So11111111111111111111111111111111111111112`
-- **USDC**: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
-- **USDT**: `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`
-- **RAY**: `4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R`
-- **SRM**: `SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt`
-
-## 🐛 Error Handling
-
-The API returns detailed error responses:
-
-```json
-{
-  "success": false,
-  "status": "failed",
-  "error": "Detailed error message",
-  "details": "Stack trace (development only)"
-}
-```
-
-Common error scenarios:
-- Invalid token addresses
-- Insufficient balance in temporary wallet
-- Network connectivity issues
-- Invalid quote responses
-- Slippage exceeded
-
-## 🚀 Development
-
-### Running in Development Mode
 ```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+
+# Start development server
 npm run dev
 ```
 
-### Environment Variables
-```bash
-# .env file
-SOLANA_RPC=https://api.mainnet-beta.solana.com
-PORT=3000
+### Environment Configuration
+
+Create a `.env` file with the following variables:
+
+```env
+# Server Configuration
+PORT=3001
 NODE_ENV=development
+
+# Solana Configuration
+SOLANA_RPC_URL=https://api.devnet.solana.com
+SOLANA_NETWORK=devnet
+
+# Jupiter Configuration
+JUPITER_API_URL=https://quote-api.jup.ag/v6
+
+# Wallet Configuration
+WALLET_STORAGE_PATH=./secrets/wallets
+CLEANUP_INTERVAL=300000
+
+# MEV Protection (Optional)
+JITO_TIP_AMOUNT=10000
+ENABLE_MEV_PROTECTION=false
+
+# Monitoring
+LOG_LEVEL=info
+METRICS_ENABLED=true
 ```
 
-### Testing
-
-#### **🌟 Recommended: Use Swagger UI**
-The easiest way to test the API is through the interactive Swagger documentation:
-```
-http://localhost:3000/api-docs
-```
-
-#### **Alternative: Command Line Testing**
-Test the API endpoints using curl or Postman:
+### Available Scripts
 
 ```bash
-# Health check
-curl http://localhost:3000/health
+# Development
+npm run dev              # Start with nodemon
+npm start               # Start production server
 
-# Swap quote
-curl -X POST http://localhost:3000/api/swap \
-  -H "Content-Type: application/json" \
-  -d '{"fromToken":"So11111111111111111111111111111111111111112","toToken":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","amount":"1000000000","destinationWallet":"YourWalletHere"}'
+# Testing
+npm run test            # Run all tests
+npm run test:integration # Integration tests only
+npm run test:wallet     # Wallet-specific tests
+
+# Utilities
+npm run generate-wallet # Generate new wallet
+npm run fund-wallet     # Fund test wallet
+npm run cleanup        # Clean old wallets
 ```
 
-📖 **For detailed testing guide, see:** [SWAGGER_GUIDE.md](./SWAGGER_GUIDE.md)
+## 🧪 Testing
 
-## 📝 License
+### Comprehensive Test Suite
 
-MIT License - see LICENSE file for details.
+The relayer includes extensive testing capabilities:
+
+#### 1. Basic Functionality Tests
+```bash
+# Run health check and basic validation
+node example/test-relayer.js
+```
+
+#### 2. Enhanced Relayer Tests
+```bash
+# Test complete swap flow with real tokens
+node test-enhanced-relayer.js
+```
+
+#### 3. Mainnet Integration Tests
+```bash
+# Test against mainnet (use with caution)
+node test-mainnet-swap.js
+```
+
+#### 4. Wallet Integration Tests
+```bash
+# Test wallet generation and management
+node test-wallet-integration.js
+```
+
+### Test Scenarios
+
+1. **Quote Generation**: Validate accurate pricing and routing
+2. **Wallet Creation**: Test temporary wallet generation
+3. **Asset Transfer**: Verify token transfers to temp wallets
+4. **Swap Execution**: Execute complete swap flows
+5. **Cleanup Process**: Verify proper wallet cleanup
+6. **Error Handling**: Test various failure scenarios
+7. **Amount Validation**: Test different swap amounts
+8. **Slippage Handling**: Verify slippage protection
+
+## 🔒 Security Features
+
+### Wallet Security
+- **Temporary Wallets**: Ephemeral keypairs for each swap
+- **Encrypted Storage**: AES-256 encryption for stored keypairs
+- **Automatic Cleanup**: Scheduled cleanup of old wallets
+- **Access Control**: No persistent storage of user funds
+
+### Transaction Security
+- **Slippage Protection**: Configurable maximum slippage
+- **Amount Validation**: Comprehensive input validation
+- **MEV Protection**: Optional MEV-resistant execution
+- **Priority Fees**: Dynamic fee calculation for fast execution
+
+### Operational Security
+- **Rate Limiting**: API rate limiting and DDoS protection
+- **Input Sanitization**: Comprehensive input validation
+- **Error Handling**: Secure error messages without sensitive data
+- **Audit Logging**: Comprehensive transaction logging
+
+## 📊 Monitoring & Analytics
+
+### Health Monitoring
+- **Health Checks**: Comprehensive system health endpoints
+- **Balance Monitoring**: Real-time wallet balance tracking
+- **Transaction Monitoring**: Swap success/failure rates
+- **Performance Metrics**: Response time and throughput monitoring
+
+### Logging
+```javascript
+// Structured logging with correlation IDs
+logger.info('Swap initiated', {
+  correlationId: 'swap_123',
+  fromToken: 'SOL',
+  toToken: 'USDC',
+  amount: '1000000000'
+});
+```
+
+## 🔧 Configuration
+
+### Jupiter Configuration
+```javascript
+// Custom Jupiter options
+const jupiterOptions = {
+  slippageBps: 50,
+  enableMevProtection: true,
+  priorityFeesBps: 100,
+  maxAccounts: 64
+};
+```
+
+### MEV Protection
+```javascript
+// Jito bundle configuration
+const mevProtectionOptions = {
+  enabled: true,
+  tipAmount: 10000, // lamports
+  bundleOnly: false
+};
+```
+
+## 🚀 Deployment
+
+### Docker Deployment
+```bash
+# Build Docker image
+docker build -t miko-relayer .
+
+# Run container
+docker run -p 3001:3001 -e NODE_ENV=production miko-relayer
+```
+
+### Production Considerations
+- **Load Balancing**: Deploy multiple instances behind load balancer
+- **Database**: Consider Redis for session storage
+- **Monitoring**: Implement comprehensive monitoring and alerting
+- **Backup**: Regular backup of critical configuration
+- **Security**: Use proper secrets management
+
+## 🔮 Future Enhancements
+
+### Planned Features
+- **Multi-chain Support**: Extend beyond Solana
+- **Advanced Routing**: Custom routing algorithms
+- **Batch Swaps**: Multiple swaps in single transaction
+- **Governance Integration**: DAO-controlled parameters
+- **Analytics Dashboard**: Real-time swap analytics
+
+### Technical Improvements
+- **Performance Optimization**: Connection pooling and caching
+- **Enhanced Security**: Hardware security module integration
+- **Monitoring Enhancement**: Advanced metrics and alerting
+- **API Versioning**: Backward-compatible API evolution
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Install dependencies (`npm install`)
+4. Set up environment variables
+5. Run tests (`npm run test`)
+6. Make your changes
+7. Ensure all tests pass
+8. Commit your changes (`git commit -m 'Add amazing feature'`)
+9. Push to the branch (`git push origin feature/amazing-feature`)
+10. Open a Pull Request
 
-## 📞 Support
+### Development Guidelines
+- Follow Node.js best practices
+- Maintain comprehensive test coverage
+- Use structured logging
+- Handle errors gracefully
+- Document API changes
+- Validate all inputs
+- Use async/await for clarity
 
-For issues and questions:
-- Create an issue on GitHub
-- Check the existing documentation
-- Review the error messages and logs 
+## 📄 License
+
+This project is licensed under the ISC License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Review the documentation in the `docs/` directory
+- Check the test examples in `example/` and `test-*` files
+- Run the comprehensive test suite to validate setup
+- Review the Swagger documentation at `/api-docs`
+
+### Common Issues
+- **Wallet Funding**: Ensure test wallets have sufficient funds
+- **RPC Limits**: Use private RPC endpoints for production
+- **Network Issues**: Verify Solana network connectivity
+- **Token Validation**: Ensure token mints are valid and active 
