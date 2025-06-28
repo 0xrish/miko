@@ -10,7 +10,7 @@ Miko Vault revolutionizes DeFi privacy by combining secure on-chain vault manage
 
 ### 📺 Live Demo
 Experience Miko Vault in action with our comprehensive demo video:
-**[🎥 Watch Demo Walkthrough](https://www.loom.com/share/b94207a9b5f24a7d962d48fa36d2333b?sid=46aad24f-bce5-4f30-8b15-8e8c072627a3)**
+**[🎥 Watch Demo Walkthrough](https://www.loom.com/share/b94207a9b5f24a7d962d48fa36d2333b?sid=cf5d3c63-d56a-47f1-bdf4-147f5c825a37)**
 
 ### 🌐 Current Deployment
 **Network**: Solana Devnet  
