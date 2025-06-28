@@ -6,15 +6,107 @@ A comprehensive decentralized finance platform built on Solana that enables priv
 
 Miko Vault revolutionizes DeFi privacy by combining secure on-chain vault management with privacy-enhanced token swapping. The platform uses temporary wallets to obscure transaction origins while maintaining full decentralization and user control.
 
+## 🎬 Demo & Deployment Status
+
+### 📺 Live Demo
+Experience Miko Vault in action with our comprehensive demo video:
+**[🎥 Watch Demo Walkthrough](https://www.loom.com/share/b94207a9b5f24a7d962d48fa36d2333b?sid=46aad24f-bce5-4f30-8b15-8e8c072627a3)**
+
+### 🌐 Current Deployment
+**Network**: Solana Devnet  
+**Status**: Fully Functional Development Environment
+
+> **Note**: The current deployment is running on Solana Devnet to ensure optimal development and testing experience. While we maintain production-ready code standards, mainnet deployment requires additional infrastructure investment (approximately 1.5 SOL for deployment costs and initial liquidity). The devnet environment provides full functionality demonstration and allows users to explore all features without mainnet fees.
+
 ### 🌟 Key Features
 
 - **🏦 Personal Vaults**: Secure, PDA-based vault system for fund management
 - **🔄 Private Swaps**: Transaction origin obscuration through temporary wallets
 - **🛡️ Zero-Knowledge Ready**: Foundation for ZK proof integration
-- **⚡ Jupiter Integration**: Access to 500+ tokens with optimal routing
+- **⚡ Jupiter Integration**: Access of all tokens with optimal routing via Jupiter v6 API
 - **📱 Modern UI**: Responsive React frontend with seamless wallet integration
 - **🔒 MEV Protection**: Optional MEV-resistant transaction execution
 - **🧹 Auto-Cleanup**: Automatic cleanup of temporary wallets and sensitive data
+
+## ⚡ Jupiter API Integration
+
+Miko Vault leverages Jupiter's comprehensive API ecosystem to provide optimal swap rates and extensive token support across both backend and frontend components.
+
+### 🔧 Relayer Integration (`/relayer`)
+
+**Jupiter v6 API** (`https://quote-api.jup.ag/v6`)
+- **Quote Endpoint** (`/quote`): Generates optimal swap routes with real-time pricing
+  - Supports 500+ tokens with deep liquidity analysis
+  - Advanced slippage calculation and price impact assessment
+  - MEV-resistant routing with restricted intermediate tokens
+  - Dynamic compute unit optimization for gas efficiency
+
+- **Swap Endpoint** (`/swap`): Creates executable transaction data
+  - Generates signed transactions ready for blockchain execution
+  - Implements priority fee optimization for fast confirmation
+  - Supports wrapped/unwrapped SOL handling automatically
+  - Includes MEV protection through Jito bundle integration
+
+**Key Features:**
+```javascript
+// Example quote request with MEV protection
+{
+  inputMint: "So11111111111111111111111111111111111111112", // SOL
+  outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  amount: "1000000", // 0.001 SOL in lamports
+  slippageBps: 50, // 0.5% slippage tolerance
+  restrictIntermediateTokens: true, // MEV protection
+  excludeDexes: "Aldrin,Crema" // Exclude problematic DEXs
+}
+```
+
+### 🎨 Frontend Integration (`/frontend`)
+
+**Jupiter Token API** (`https://lite-api.jup.ag/tokens/v1`)
+- **Token Discovery**: Complete token registry with metadata
+- **Symbol & Name Lookup**: Comprehensive token information
+- **Logo URI Management**: Official token imagery and branding
+- **Verification Status**: Trusted token identification
+- **Volume Data**: 24h trading volume for popularity ranking
+
+**Jupiter Price API** (`https://api.jup.ag/price/v2`)
+- **Real-time Pricing**: Live token price feeds
+- **Multi-token Support**: Batch price requests for efficiency
+- **USD Conversions**: Accurate fiat value calculations
+- **Market Data**: Price changes and trading metrics
+
+**Implementation Example:**
+```typescript
+// Token search with price integration
+const searchResults = await tokenService.searchTokens("USDC", 20);
+// Returns tokens with live prices and metadata
+
+// Real-time price monitoring
+const prices = await jupiterPriceAPI.getPrices([
+  "So11111111111111111111111111111111111111112", // SOL
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+]);
+```
+
+### 🛡️ Advanced Jupiter Features
+
+**MEV Protection Integration:**
+- **Route Optimization**: Selects MEV-resistant liquidity sources
+- **Slippage Management**: Dynamic slippage based on market conditions
+- **Priority Fee Calculation**: Automated fee optimization for fast execution
+- **Bundle Support**: Jito integration for transaction protection
+
+**Performance Optimizations:**
+- **Connection Pooling**: Efficient API request management
+- **Response Caching**: 5-minute cache for token data and prices
+- **Batch Requests**: Minimizes API calls for better performance
+- **Retry Logic**: Robust error handling with exponential backoff
+
+**Supported Trading Pairs:**
+- ✅ SOL ↔ All Major Stablecoins (USDC, USDT)
+- ✅ SOL ↔ Popular Tokens (RAY, BONK, JTO, WEN, etc.)
+- ✅ Any Jupiter-supported token pair combinations
+- ✅ Cross-DEX routing for optimal rates
 
 ## 🏗️ System Architecture
 
@@ -24,18 +116,27 @@ graph TB
         UI[React Frontend]
         WC[Wallet Connect]
         TS[Token Selector]
+        PS[Price Service]
+    end
+    
+    subgraph "Jupiter API Ecosystem"
+        JQ[Jupiter Quote API v6]
+        JS[Jupiter Swap API v6]
+        JT[Jupiter Token API]
+        JP[Jupiter Price API v2]
     end
     
     subgraph "Blockchain Layer"
         VP[Vault Program]
         PDA[PDA Vaults]
         SOL[Solana Network]
+        DEX[DEX Aggregation]
     end
     
     subgraph "Privacy Layer"
         RS[Relayer Service]
         TW[Temporary Wallets]
-        JUP[Jupiter Aggregator]
+        MEV[MEV Protection]
     end
     
     subgraph "ZK Layer (Future)"
@@ -47,11 +148,18 @@ graph TB
     UI --> WC
     UI --> VP
     UI --> RS
+    TS --> JT
+    PS --> JP
     VP --> PDA
     VP --> SOL
     RS --> TW
-    RS --> JUP
+    RS --> JQ
+    RS --> JS
+    RS --> MEV
+    JQ --> DEX
+    JS --> DEX
     TW --> SOL
+    DEX --> SOL
     ZKP --> RZ
     ZKP --> VER
     VER --> VP
